@@ -1,0 +1,21 @@
+{
+  "schema_version": "packing-benchmark/v1",
+  "case": "triintri@1",
+  "item": {
+    "type": "regular_polygon",
+    "sides": 3,
+    "side_length": 1
+  },
+  "container": {
+    "type": "regular_polygon",
+    "sides": 3,
+    "side_length": 1
+  },
+  "placements": [
+    {
+      "x": 0.0,
+      "y": 0.0,
+      "rotation_radians": 0.0
+    }
+  ]
+}

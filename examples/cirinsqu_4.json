@@ -1,0 +1,35 @@
+{
+  "schema_version": "packing-benchmark/v1",
+  "case": "cirinsqu@4",
+  "item": {
+    "type": "circle",
+    "radius": 0.5
+  },
+  "container": {
+    "type": "rectangle",
+    "width": 2.0,
+    "height": 2.0
+  },
+  "placements": [
+    {
+      "x": -0.5,
+      "y": -0.5,
+      "rotation_radians": 0.0
+    },
+    {
+      "x": 0.5,
+      "y": -0.5,
+      "rotation_radians": 0.0
+    },
+    {
+      "x": -0.5,
+      "y": 0.5,
+      "rotation_radians": 0.0
+    },
+    {
+      "x": 0.5,
+      "y": 0.5,
+      "rotation_radians": 0.0
+    }
+  ]
+}
