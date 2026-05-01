@@ -11,6 +11,8 @@ from typing import Any
 
 PI = math.pi
 DEFAULT_TOLERANCE = 1.0e-8
+GEOMETRY_ZERO_TOLERANCE = 1.0e-12
+SPEC_CONSISTENCY_TOLERANCE = 1.0e-9
 CASE_PATTERN = re.compile(r"^[a-z0-9]+in[a-z0-9]+@[1-9][0-9]*$")
 
 
@@ -135,37 +137,61 @@ def regular_sides(spec: dict[str, Any]) -> int:
     return sides
 
 
-def regular_radius(spec: dict[str, Any]) -> float:
+def dimension_close(left: float, right: float, tolerance: float = SPEC_CONSISTENCY_TOLERANCE) -> bool:
+    return abs(left - right) <= tolerance * max(1.0, abs(left), abs(right))
+
+
+def clean_excess(value: float) -> float:
+    return 0.0 if abs(value) <= GEOMETRY_ZERO_TOLERANCE else value
+
+
+def regular_geometry(spec: dict[str, Any]) -> tuple[int, float, float]:
     sides = regular_sides(spec)
+    radius: float | None = None
+    side: float | None = None
     if "circumradius" in spec:
         radius = finite_float(spec["circumradius"], "regular_polygon circumradius")
-    elif "side_length" in spec:
+    if "side_length" in spec:
         side = finite_float(spec["side_length"], "regular_polygon side_length")
-        radius = side / (2.0 * math.sin(PI / sides))
-    else:
+    if radius is None and side is None:
         raise ValueError("regular_polygon requires side_length or circumradius")
-    if radius <= 0.0:
+    if radius is not None and radius <= 0.0:
         raise ValueError("regular_polygon radius must be positive")
-    return radius
+    if side is not None and side <= 0.0:
+        raise ValueError("regular_polygon side_length must be positive")
+    if radius is None:
+        assert side is not None
+        radius = side / (2.0 * math.sin(PI / sides))
+    computed_side = 2.0 * radius * math.sin(PI / sides)
+    if side is not None and not dimension_close(side, computed_side):
+        raise ValueError(
+            "regular_polygon side_length and circumradius are inconsistent: "
+            f"side_length={side:.17g}, circumradius implies {computed_side:.17g}"
+        )
+    return sides, radius, computed_side
+
+
+def regular_radius(spec: dict[str, Any]) -> float:
+    return regular_geometry(spec)[1]
 
 
 def regular_side_length(spec: dict[str, Any]) -> float:
-    sides = regular_sides(spec)
-    if "side_length" in spec:
-        side = finite_float(spec["side_length"], "regular_polygon side_length")
-    else:
-        side = 2.0 * regular_radius(spec) * math.sin(PI / sides)
-    if side <= 0.0:
-        raise ValueError("regular_polygon side_length must be positive")
-    return side
+    return regular_geometry(spec)[2]
 
 
 def circle_radius(spec: dict[str, Any]) -> float:
+    radius: float | None = None
     if "radius" in spec:
         radius = finite_float(spec["radius"], "circle radius")
-    elif "diameter" in spec:
-        radius = 0.5 * finite_float(spec["diameter"], "circle diameter")
-    else:
+    if "diameter" in spec:
+        diameter_radius = 0.5 * finite_float(spec["diameter"], "circle diameter")
+        if radius is not None and not dimension_close(radius, diameter_radius):
+            raise ValueError(
+                "circle radius and diameter are inconsistent: "
+                f"radius={radius:.17g}, diameter implies {diameter_radius:.17g}"
+            )
+        radius = diameter_radius if radius is None else radius
+    if radius is None:
         raise ValueError("circle requires radius or diameter")
     if radius <= 0.0:
         raise ValueError("circle radius must be positive")
@@ -193,8 +219,7 @@ def make_item_shape(item: dict[str, Any], placement: dict[str, Any]) -> dict[str
     rotation = finite_float(placement.get("rotation_radians", 0.0), "placement rotation_radians")
 
     if kind == "regular_polygon":
-        radius = regular_radius(item)
-        sides = regular_sides(item)
+        sides, radius, _side = regular_geometry(item)
         return {
             "kind": "polygon",
             "vertices": regular_vertices(sides, radius, rotation=rotation, center=(x, y)),
@@ -222,12 +247,11 @@ def make_container_shape(container: dict[str, Any]) -> dict[str, Any]:
     kind = shape_type(container)
     rotation = optional_rotation(container)
     if kind == "regular_polygon":
-        radius = regular_radius(container)
-        sides = regular_sides(container)
+        sides, radius, side = regular_geometry(container)
         return {
             "kind": "polygon",
             "vertices": regular_vertices(sides, radius, rotation=rotation),
-            "side": regular_side_length(container),
+            "side": side,
             "area": regular_area(sides, radius),
         }
     if kind == "rectangle":
@@ -532,6 +556,8 @@ def verify_solution(solution: dict[str, Any], tolerance: float = DEFAULT_TOLERAN
                 max_overlap = max(max_overlap, pair_overlap_depth(shapes[i], shapes[j]))
         if max_overlap == -float("inf"):
             max_overlap = 0.0
+        max_boundary = clean_excess(max_boundary)
+        max_overlap = clean_excess(max_overlap)
 
         if max_boundary > tolerance:
             errors.append(f"boundary protrusion {max_boundary:.6g} exceeds tolerance {tolerance:.3g}")

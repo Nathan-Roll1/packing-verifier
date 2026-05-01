@@ -70,6 +70,11 @@ Supported shapes:
 - `circle`: `radius` or `diameter`
 - `rectangle`: `width` and `height`
 
+If a JSON includes redundant dimensions, such as both `side_length` and
+`circumradius` for a regular polygon or both `radius` and `diameter` for a
+circle, they must describe the same geometry. The metric is always computed
+from the geometry the verifier actually checks.
+
 Coordinate convention:
 
 - the container is centered at the origin
