@@ -89,6 +89,6 @@ Smaller metric values are better. The public Space applies an additional record 
 ## Development
 
 ```bash
-python -m unittest
+python -m unittest discover -s tests
 python -m packing_verifier.cli verify examples/triintri_1.json
 ```
